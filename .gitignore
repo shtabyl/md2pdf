@@ -1,5 +1,7 @@
 source.pdf
+ready_document.pdf
 dev_notes.md
+fonts/
 
 # Virtual environments
 md2pdf_venv/
