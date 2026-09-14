@@ -1,0 +1,9 @@
+source.pdf
+dev_notes.md
+
+# Virtual environments
+md2pdf_venv/
+venv/
+.venv/
+env/
+ENV/
