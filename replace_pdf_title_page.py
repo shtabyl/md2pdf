@@ -13,11 +13,6 @@ pdfmetrics.registerFont(TTFont("Inter", os.path.join(FONTS_DIR, "Inter_18pt-Regu
 pdfmetrics.registerFont(TTFont("Inter-SemiBold", os.path.join(FONTS_DIR, "Inter_18pt-SemiBold.ttf")))
 
 def parse_text(text: str) -> tuple[str, str]:
-    """
-    Делит текст так, что:
-    - title   — все строки, кроме последней (объединённые через \n),
-    - subtitle — только последняя строка.
-    """
     lines = [line for line in text.splitlines() if line.strip()]
     if not lines:
         return "", ""
@@ -31,7 +26,7 @@ def parse_text(text: str) -> tuple[str, str]:
 def draw_background(canvas, doc):
     """Окрашивает всю страницу в фирменный сиреневый цвет."""
     canvas.saveState()
-    canvas.setFillColor(colors.HexColor("#8A6F93"))
+    canvas.setFillColor(colors.HexColor("#906996"))
     width, height = doc.pagesize
     canvas.rect(0, 0, width, height, fill=True, stroke=False)
     canvas.restoreState()
@@ -137,7 +132,7 @@ def replace_pdf_first_page(source_pdf_path, final_pdf_path):
             writer.add_page(reader.pages[page_num])
             
         # Запускаем генерацию обложки, передавая туда динамический текст
-        generate_cover_page(temp_cover_path, title_text, subtitle_text)
+        generate_cover_page(temp_cover_path, title_text, subtitle_text.capitalize())
         
         # Открываем созданную обложку и забираем её лист
         cover_reader = PdfReader(temp_cover_path)
