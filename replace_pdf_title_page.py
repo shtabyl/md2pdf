@@ -2,86 +2,137 @@ import os
 from pypdf import PdfReader, PdfWriter
 from reportlab.lib.pagesizes import letter
 from reportlab.lib import colors
-from reportlab.pdfgen import canvas
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 
-# --- РЕГИСТРАЦИЯ ТТF ШРИФТОВ INTER ---
+# --- 1. РЕГИСТРАЦИЯ ШРИФТОВ ---
 FONTS_DIR = "./fonts"
+pdfmetrics.registerFont(TTFont("Inter", os.path.join(FONTS_DIR, "Inter_18pt-Regular.ttf")))
+pdfmetrics.registerFont(TTFont("Inter-SemiBold", os.path.join(FONTS_DIR, "Inter_18pt-SemiBold.ttf")))
 
-INTER_FONTS = {
-    "Inter": "Inter_18pt-Regular.ttf",
-    "Inter-Bold": "Inter_18pt-Bold.ttf",
-    "Inter-Medium": "Inter_18pt-Medium.ttf",
-    "Inter-Italic": "Inter_18pt-Italic.ttf"
-}
 
-for font_name, font_file in INTER_FONTS.items():
-    full_path = os.path.join(FONTS_DIR, font_file)
-    if os.path.exists(full_path):
-        pdfmetrics.registerFont(TTFont(font_name, full_path))
+# --- 2. ФУНКЦИЯ ДЛЯ ОТРИСОВКИ ФОНА СТРАНИЦЫ ---
+def draw_background(canvas, doc):
+    """Окрашивает всю страницу в фирменный сиреневый цвет."""
+    canvas.saveState()
+    # Цвет фона с картинки (приглушенный сиреневый / лавандовый)
+    canvas.setFillColor(colors.HexColor("#8A6F93"))
+    # Закрашиваем весь лист (размеры берутся из объекта doc)
+    canvas.rect(0, 0, doc.pagesize[0], doc.pagesize[1], fill=True, stroke=False)
+    canvas.restoreState()
+
+
+# --- 3. ГЕНЕРАЦИЯ ДИЗАЙНА ТИТУЛЬНОЙ СТРАНИЦЫ ---
+def generate_cover_page(output_temp_path):
+    """Создает временный PDF-файл, повторяющий дизайн с картинки."""
+    # Задаем размеры и убираем поля, так как фон должен быть во весь экран
+    # Но для текста внутри сделаем отступы по 40 пунктов
+    doc = SimpleDocTemplate(
+        output_temp_path,
+        pagesize=letter,
+        leftMargin=40, rightMargin=40,
+        topMargin=40, bottomMargin=40
+    )
+    
+    styles = getSampleStyleSheet()
+    
+    # Стиль для верхнего мелкого текста
+    top_text_style = ParagraphStyle(
+        'TopText',
+        parent=styles['Normal'],
+        fontName='Inter',
+        fontSize=14,
+        leading=16,
+        textColor=colors.white,
+        alignment=1 # По центру
+    )
+    
+    # Стиль для главного большого заголовка
+    main_title_style = ParagraphStyle(
+        'MainTitle',
+        parent=styles['Normal'],
+        fontName='Inter-SemiBold',
+        fontSize=18,
+        leading=24,
+        textColor=colors.white,
+        alignment=1 # По центру
+    )
+    
+    story = []
+    
+    # Сдвигаем текст примерно к центру страницы по вертикали
+    story.append(Spacer(1, 180))
+    
+    # Маленький надзаголовок
+    story.append(Paragraph("Инструкция для пользователей", top_text_style))
+    
+    # Небольшой отступ между строками текста
+    story.append(Spacer(1, 25))
+    
+    # Главный заголовок (капсом, как на фото)
+    title_text = "ПОДКЛЮЧЕНИЕ БЕСПРОВОДНОЙ<br/>ТЕРМОГОЛОВКИ РАДИАТОРА ОТОПЛЕНИЯ<br/>CLEVERHOME ZIGBEE"
+    story.append(Paragraph(title_text, main_title_style))
+    
+    # Отступ вниз до логотипа (подбирается экспериментально под высоту страницы)
+    story.append(Spacer(1, 340))
+    
+    # Добавление логотипа в самый низ
+    logo_path = "logo.png"
+    if os.path.exists(logo_path):
+        # Подберите ширину и высоту вашего логотипа в пунктах
+        logo_img = Image(logo_path, width=90, height=35)
+        logo_img.hAlign = 'CENTER'
+        story.append(logo_img)
     else:
-        print(f"Предупреждение: файл {font_file} не найден в {FONTS_DIR}")
-# -------------------------------------------
+        print(f"Предупреждение: Файл логотипа '{logo_path}' не найден. Страница будет сгенерирована без него.")
 
-def modify_pdf(input_path, output_path):
-    temp_page_path = "temp_generated_page.pdf"
+    # Собираем документ, применяя функцию draw_background для покраски фона
+    doc.build(story, onFirstPage=draw_background)
+
+
+# --- 4. ОСНОВНАЯ ФУНКЦИЯ ДЛЯ ЗАМЕНЫ СТРАНИЦЫ ---
+def replace_pdf_first_page(source_pdf_path, final_pdf_path):
+    """Считывает исходный файл, удаляет 1-ю страницу и вшивает новую с заданным дизайном."""
+    temp_cover_path = "temp_cover.pdf"
     
     try:
-        reader = PdfReader(input_path)
+        # Проверяем и читаем исходный файл
+        reader = PdfReader(source_pdf_path)
         writer = PdfWriter()
         
         if len(reader.pages) == 0:
-            print("Файл пуст.")
+            print("Ошибка: Исходный файл пуст.")
             return
-
-        # Извлекаем текст с первой страницы для титульного листа
-        first_page_text = reader.pages[0].extract_text()
-        lines = [line.strip() for line in first_page_text.split("\n") if line.strip()]
-        title = lines[0] if len(lines) > 0 else ""
-        subtitle = lines[1] if len(lines) > 1 else ""
-
-        # Удаляем первую страницу (копируем со 2-й и далее)
+            
+        # Удаляем первую страницу: копируем в новый файл страницы со 2-й (индекс 1) до конца
         for page_num in range(1, len(reader.pages)):
             writer.add_page(reader.pages[page_num])
             
-        # Генерация новой страницы
-        c = canvas.Canvas(temp_page_path, pagesize=letter)
-        width, height = letter
+        # Запускаем генерацию нашей красивой страницы во временный файл
+        generate_cover_page(temp_cover_path)
         
-        c.setFillColor(colors.HexColor("#1A365D"))
-        c.rect(0, height - 140, width, 140, fill=True, stroke=False)
+        # Открываем созданную обложку через pypdf и забираем ее единственный лист
+        cover_reader = PdfReader(temp_cover_path)
+        new_cover_page = cover_reader.pages[0]
         
-        c.setFillColor(colors.white)
-        c.setFont("Inter-Bold", 26) 
-        c.drawString(50, height - 65, title)
+        # Вшиваем новую страницу в самое начало (индекс 0)
+        writer.insert_page(new_cover_page, index=0)
         
-        c.setFont("Inter-Medium", 14)
-        c.drawString(50, height - 100, subtitle)
-        
-        c.setFillColor(colors.HexColor("#2D3748"))
-        c.setFont("Inter", 12)
-        c.drawString(50, height - 200, "")
-        
-        c.save()
-        
-        # Сшиваем файлы: Читаем временный PDF
-        new_page_reader = PdfReader(temp_page_path)
-        
-        # ИСПРАВЛЕНИЕ: Берем строго первую страницу через [0]
-        new_page_object = new_page_reader.pages[0] 
-        writer.insert_page(new_page_object, index=0)
-        
-        # Сохраняем финальный результат
-        with open(output_path, "wb") as f_out:
+        # Сохраняем и закрываем итоговый файл
+        with open(final_pdf_path, "wb") as f_out:
             writer.write(f_out)
             
-        print(f"Успех! Файл сохранен: {output_path}")
-
+        print(f"Успешно! Документ с новым дизайном сохранен: {final_pdf_path}")
+        
     except Exception as e:
-        print(f"Ошибка: {e}")
+        print(f"Произошла ошибка: {e}")
+        
     finally:
-        if os.path.exists(temp_page_path):
-            os.remove(temp_page_path)
+        # Чистим за собой временную обложку
+        if os.path.exists(temp_cover_path):
+            os.remove(temp_cover_path)
 
-modify_pdf("source.pdf", "ready_document.pdf")
+# --- ЗАПУСК ---
+replace_pdf_first_page("source.pdf", "final_manual.pdf")

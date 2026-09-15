@@ -1,5 +1,5 @@
-source.pdf
-ready_document.pdf
+*.pdf
+*.png
 dev_notes.md
 fonts/
 
