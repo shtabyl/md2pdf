@@ -35,6 +35,12 @@ def modify_pdf(input_path, output_path):
             print("Файл пуст.")
             return
 
+        # Извлекаем текст с первой страницы для титульного листа
+        first_page_text = reader.pages[0].extract_text()
+        lines = [line.strip() for line in first_page_text.split("\n") if line.strip()]
+        title = lines[0] if len(lines) > 0 else ""
+        subtitle = lines[1] if len(lines) > 1 else ""
+
         # Удаляем первую страницу (копируем со 2-й и далее)
         for page_num in range(1, len(reader.pages)):
             writer.add_page(reader.pages[page_num])
@@ -48,14 +54,14 @@ def modify_pdf(input_path, output_path):
         
         c.setFillColor(colors.white)
         c.setFont("Inter-Bold", 26) 
-        c.drawString(50, height - 65, "Новый Титульный Лист")
+        c.drawString(50, height - 65, title)
         
         c.setFont("Inter-Medium", 14)
-        c.drawString(50, height - 100, "Сгенерировано с использованием TTF")
+        c.drawString(50, height - 100, subtitle)
         
         c.setFillColor(colors.HexColor("#2D3748"))
         c.setFont("Inter", 12)
-        c.drawString(50, height - 200, "Теперь кириллица в шрифте Inter отображается корректно!")
+        c.drawString(50, height - 200, "")
         
         c.save()
         
