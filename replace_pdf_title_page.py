@@ -12,23 +12,34 @@ FONTS_DIR = "./fonts"
 pdfmetrics.registerFont(TTFont("Inter", os.path.join(FONTS_DIR, "Inter_18pt-Regular.ttf")))
 pdfmetrics.registerFont(TTFont("Inter-SemiBold", os.path.join(FONTS_DIR, "Inter_18pt-SemiBold.ttf")))
 
+def parse_text(text: str) -> tuple[str, str]:
+    """
+    Делит текст так, что:
+    - title   — все строки, кроме последней (объединённые через \n),
+    - subtitle — только последняя строка.
+    """
+    lines = [line for line in text.splitlines() if line.strip()]
+    if not lines:
+        return "", ""
+    if len(lines) == 1:
+        return "", lines[0]
+    title = " ".join(lines[:-2])
+    subtitle = lines[-2]
+    return title, subtitle
 
 # --- 2. ФУНКЦИЯ ДЛЯ ОТРИСОВКИ ФОНА СТРАНИЦЫ ---
 def draw_background(canvas, doc):
     """Окрашивает всю страницу в фирменный сиреневый цвет."""
     canvas.saveState()
-    # Цвет фона с картинки (приглушенный сиреневый / лавандовый)
     canvas.setFillColor(colors.HexColor("#8A6F93"))
-    # Закрашиваем весь лист (размеры берутся из объекта doc)
-    canvas.rect(0, 0, doc.pagesize[0], doc.pagesize[1], fill=True, stroke=False)
+    width, height = doc.pagesize
+    canvas.rect(0, 0, width, height, fill=True, stroke=False)
     canvas.restoreState()
 
 
-# --- 3. ГЕНЕРАЦИЯ ДИЗАЙНА ТИТУЛЬНОЙ СТРАНИЦЫ ---
-def generate_cover_page(output_temp_path):
-    """Создает временный PDF-файл, повторяющий дизайн с картинки."""
-    # Задаем размеры и убираем поля, так как фон должен быть во весь экран
-    # Но для текста внутри сделаем отступы по 40 пунктов
+# --- 3. ГЕНЕРАЦИЯ ДИЗАЙНА ТИТУЛЬНОЙ СТРАНИЦЫ С ДИНАМИЧЕСКИМ ТЕКСТОМ ---
+def generate_cover_page(output_temp_path, title_text, subtitle_text):
+    """Создает временный PDF-файл, используя текст со старой страницы."""
     doc = SimpleDocTemplate(
         output_temp_path,
         pagesize=letter,
@@ -38,7 +49,7 @@ def generate_cover_page(output_temp_path):
     
     styles = getSampleStyleSheet()
     
-    # Стиль для верхнего мелкого текста
+    # Стиль для subtitle_text (бывшая "Инструкция для пользователей")
     top_text_style = ParagraphStyle(
         'TopText',
         parent=styles['Normal'],
@@ -46,59 +57,54 @@ def generate_cover_page(output_temp_path):
         fontSize=14,
         leading=16,
         textColor=colors.white,
-        alignment=1 # По центру
+        alignment=1
     )
     
-    # Стиль для главного большого заголовка
+    # Стиль для главного большого заголовка title_text
     main_title_style = ParagraphStyle(
         'MainTitle',
         parent=styles['Normal'],
         fontName='Inter-SemiBold',
         fontSize=18,
-        leading=24,
+        leading=26,
         textColor=colors.white,
-        alignment=1 # По центру
+        alignment=1
     )
     
     story = []
     
-    # Сдвигаем текст примерно к центру страницы по вертикали
+    # Отрегулированная высота, чтобы заголовок был выше
     story.append(Spacer(1, 180))
     
-    # Маленький надзаголовок
-    story.append(Paragraph("Инструкция для пользователей", top_text_style))
+    # Подставляем subtitle_text (текст ПОСЛЕ последнего переноса строки)
+    story.append(Paragraph(subtitle_text, top_text_style))
     
-    # Небольшой отступ между строками текста
     story.append(Spacer(1, 25))
     
-    # Главный заголовок (капсом, как на фото)
-    title_text = "ПОДКЛЮЧЕНИЕ БЕСПРОВОДНОЙ<br/>ТЕРМОГОЛОВКИ РАДИАТОРА ОТОПЛЕНИЯ<br/>CLEVERHOME ZIGBEE"
-    story.append(Paragraph(title_text, main_title_style))
+    # Подставляем title_text (текст ДО последнего переноса строки)
+    # Заменяем обычные переносы строк \n на HTML-теги <br/>, чтобы ReportLab их понял
+    formatted_title = title_text.upper().replace('\n', '<br/>')
+    story.append(Paragraph(formatted_title, main_title_style))
     
-    # Отступ вниз до логотипа (подбирается экспериментально под высоту страницы)
     story.append(Spacer(1, 340))
     
-    # Добавление логотипа в самый низ
+    # Добавление логотипа
     logo_path = "logo.png"
     if os.path.exists(logo_path):
-        # Подберите ширину и высоту вашего логотипа в пунктах
         logo_img = Image(logo_path, width=90, height=35)
         logo_img.hAlign = 'CENTER'
         story.append(logo_img)
     else:
-        print(f"Предупреждение: Файл логотипа '{logo_path}' не найден. Страница будет сгенерирована без него.")
+        print(f"Предупреждение: Файл логотипа '{logo_path}' не найден.")
 
-    # Собираем документ, применяя функцию draw_background для покраски фона
     doc.build(story, onFirstPage=draw_background)
 
 
 # --- 4. ОСНОВНАЯ ФУНКЦИЯ ДЛЯ ЗАМЕНЫ СТРАНИЦЫ ---
 def replace_pdf_first_page(source_pdf_path, final_pdf_path):
-    """Считывает исходный файл, удаляет 1-ю страницу и вшивает новую с заданным дизайном."""
     temp_cover_path = "temp_cover.pdf"
     
     try:
-        # Проверяем и читаем исходный файл
         reader = PdfReader(source_pdf_path)
         writer = PdfWriter()
         
@@ -106,31 +112,49 @@ def replace_pdf_first_page(source_pdf_path, final_pdf_path):
             print("Ошибка: Исходный файл пуст.")
             return
             
+        # --- ИЗВЛЕЧЕНИЕ И ПАРСИНГ ТЕКСТА С ПЕРВОЙ СТРАНИЦЫ ---
+        first_page = reader.pages[0]
+        extracted_text = first_page.extract_text()
+        
+        # Очищаем текст от лишних пробелов по краям
+        extracted_text = extracted_text.strip() if extracted_text else ""
+        
+        if not extracted_text:
+            print("Предупреждение: Не удалось извлечь текст с первой страницы. Будут использованы пустые строки.")
+            title_text, subtitle_text = "Без названия", ""
+        else:
+            title_text, subtitle_text = parse_text(extracted_text)
+        
+        # Печатаем в консоль для проверки, что получилось достать
+        print(f"--- Извлеченный текст ---")
+        print(f"До последнего переноса (title_text):\n{title_text}")
+        print(f"После последнего переноса (subtitle_text): {subtitle_text}")
+        print(f"-------------------------")
+        # -----------------------------------------------------
+
         # Удаляем первую страницу: копируем в новый файл страницы со 2-й (индекс 1) до конца
         for page_num in range(1, len(reader.pages)):
             writer.add_page(reader.pages[page_num])
             
-        # Запускаем генерацию нашей красивой страницы во временный файл
-        generate_cover_page(temp_cover_path)
+        # Запускаем генерацию обложки, передавая туда динамический текст
+        generate_cover_page(temp_cover_path, title_text, subtitle_text)
         
-        # Открываем созданную обложку через pypdf и забираем ее единственный лист
+        # Открываем созданную обложку и забираем её лист
         cover_reader = PdfReader(temp_cover_path)
         new_cover_page = cover_reader.pages[0]
         
-        # Вшиваем новую страницу в самое начало (индекс 0)
+        # Вшиваем новую страницу в самое начало
         writer.insert_page(new_cover_page, index=0)
         
-        # Сохраняем и закрываем итоговый файл
         with open(final_pdf_path, "wb") as f_out:
             writer.write(f_out)
             
-        print(f"Успешно! Документ с новым дизайном сохранен: {final_pdf_path}")
+        print(f"Успешно! Документ с динамическим текстом сохранен: {final_pdf_path}")
         
     except Exception as e:
         print(f"Произошла ошибка: {e}")
         
     finally:
-        # Чистим за собой временную обложку
         if os.path.exists(temp_cover_path):
             os.remove(temp_cover_path)
 
