@@ -1,0 +1,30 @@
+#!/bin/bash
+
+# Путь к папке, где лежит ваш Python-скрипт и окружение venv
+TOOL_DIR="/home/faun6/projects/md2pdf"
+
+# Проверяем, что передан хотя бы один файл
+if [ "$#" -lt 1 ]; then
+    echo "Использование: patch-cover <путь_к_pdf>"
+    exit 1
+fi
+
+# Получаем абсолютный путь к исходному файлу
+INPUT_PATH="$(realpath "$1")"
+# Временный файл для безопасной перезаписи создаем в той же папке
+TEMP_OUTPUT="${INPUT_PATH}.tmp.pdf"
+
+# 1. Запускаем Python напрямую из вашего venv (папка md2pdf_venv)
+# Передаем исходный файл и временный выходной файл
+$TOOL_DIR/md2pdf_venv/bin/python3 $TOOL_DIR/replace_pdf_title_page.py "$INPUT_PATH" "$TEMP_OUTPUT"
+
+# 2. Если Python-скрипт отработал успешно (код возврата 0), заменяем исходный файл
+if [ $? -eq 0 ]; then
+    mv "$TEMP_OUTPUT" "$INPUT_PATH"
+    echo "[Успех] Файл успешно обновлен и перезаписан: $INPUT_PATH"
+else
+    echo "[Ошибка] Не удалось изменить PDF. Исходный файл сохранен без изменений."
+    # На всякий случай чистим временный файл, если он создался
+    [ -f "$TEMP_OUTPUT" ] && rm "$TEMP_OUTPUT"
+    exit 1
+fi

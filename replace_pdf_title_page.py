@@ -1,4 +1,5 @@
 import os
+import sys
 from pypdf import PdfReader, PdfWriter, Transformation
 from reportlab.lib.pagesizes import letter
 from reportlab.lib import colors
@@ -8,7 +9,13 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 
 # --- 1. РЕГИСТРАЦИЯ ШРИФТОВ ---
-FONTS_DIR = "./fonts"
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+
+vector_wm_path = os.path.join(SCRIPT_DIR, "watermark_vector.pdf")
+vector_logo_path = os.path.join(SCRIPT_DIR, "logo_vector_full.pdf")
+
+# Привязываем папку шрифтов к абсолютной директории скрипта
+FONTS_DIR = os.path.join(SCRIPT_DIR, "fonts")
 pdfmetrics.registerFont(TTFont("Inter", os.path.join(FONTS_DIR, "Inter_18pt-Regular.ttf")))
 pdfmetrics.registerFont(TTFont("Inter-SemiBold", os.path.join(FONTS_DIR, "Inter_18pt-SemiBold.ttf")))
 
@@ -118,7 +125,6 @@ def replace_pdf_first_page(source_pdf_path, final_pdf_path):
         PAGE_W, PAGE_H = 612, 792
         
         # --- 4А. СЛИЯНИЕ С ВЕКТОРНЫМ ВОДЯНЫМ ЗНАКОМ (ПРАВЫЙ НИЖНИЙ УГОЛ) ---
-        vector_wm_path = "watermark_vector.pdf"
         if os.path.exists(vector_wm_path):
             wm_reader = PdfReader(vector_wm_path)
             wm_page = wm_reader.pages[0]
@@ -139,7 +145,6 @@ def replace_pdf_first_page(source_pdf_path, final_pdf_path):
             print("Векторный водяной знак успешно наложен.")
             
         # --- 4Б. СЛИЯНИЕ С ВЕКТОРНЫМ ЛОГОТИПОМ (СВЕРХУ ПО ЦЕНТРУ) ---
-        vector_logo_path = "logo_vector_full.pdf"
         if os.path.exists(vector_logo_path):
             logo_reader = PdfReader(vector_logo_path)
             logo_page = logo_reader.pages[0]
@@ -179,4 +184,13 @@ def replace_pdf_first_page(source_pdf_path, final_pdf_path):
             os.remove(temp_cover_path)
 
 # --- ЗАПУСК ---
-replace_pdf_first_page("source.pdf", "final_manual.pdf")
+if __name__ == "__main__":
+    # Проверяем, передал ли пользователь файлы при запуске
+    if len(sys.argv) < 3:
+        print("Использование: python3 replace_pdf_title_page.py <путь_к_исходному_pdf> <путь_к_выходному_pdf>")
+        sys.exit(1)
+        
+    input_file = sys.argv[1]
+    output_file = sys.argv[2]
+    
+    replace_pdf_first_page(input_file, output_file)
