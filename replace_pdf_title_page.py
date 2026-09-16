@@ -11,8 +11,8 @@ from reportlab.pdfbase.ttfonts import TTFont
 # --- 1. РЕГИСТРАЦИЯ ШРИФТОВ ---
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-vector_wm_path = os.path.join(SCRIPT_DIR, "watermark_vector.pdf")
-vector_logo_path = os.path.join(SCRIPT_DIR, "logo_vector_full.pdf")
+vector_wm_path = os.path.join(SCRIPT_DIR, "static/watermark_vector.pdf")
+vector_logo_path = os.path.join(SCRIPT_DIR, "static/logo_vector_full.pdf")
 
 # Привязываем папку шрифтов к абсолютной директории скрипта
 FONTS_DIR = os.path.join(SCRIPT_DIR, "fonts")
@@ -142,7 +142,6 @@ def replace_pdf_first_page(source_pdf_path, final_pdf_path):
             
             tf_wm = Transformation().scale(sx=scale_wm_x, sy=scale_wm_y).translate(tx=shift_wm_x, ty=shift_wm_y)
             new_cover_page.merge_transformed_page(wm_page, tf_wm, over=True)
-            print("Векторный водяной знак успешно наложен.")
             
         # --- 4Б. СЛИЯНИЕ С ВЕКТОРНЫМ ЛОГОТИПОМ (СВЕРХУ ПО ЦЕНТРУ) ---
         if os.path.exists(vector_logo_path):
@@ -174,7 +173,7 @@ def replace_pdf_first_page(source_pdf_path, final_pdf_path):
         with open(final_pdf_path, "wb") as f_out:
             writer.write(f_out)
             
-        print(f"Успешно! Итоговый документ сохранен: {final_pdf_path}")
+        #print(f"Успешно! Итоговый документ сохранен: {final_pdf_path}")
         
     except Exception as e:
         print(f"Произошла ошибка: {e}")
@@ -187,7 +186,7 @@ def replace_pdf_first_page(source_pdf_path, final_pdf_path):
 if __name__ == "__main__":
     # Проверяем, передал ли пользователь файлы при запуске
     if len(sys.argv) < 3:
-        print("Использование: python3 replace_pdf_title_page.py <путь_к_исходному_pdf> <путь_к_выходному_pdf>")
+        print("Использование: python3 replace_pdf_title_page.py <путь_к_исходному_pdf>")
         sys.exit(1)
         
     input_file = sys.argv[1]
