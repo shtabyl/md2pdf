@@ -79,7 +79,8 @@ def generate_cover_page(output_temp_path, title_text, subtitle_text):
     story.append(Spacer(1, 140))  # Отступ от логотипа до начала текста
     
     # Подставляем текст
-    story.append(Paragraph(subtitle_text, top_text_style))
+    formatted_subtitle = subtitle_text.capitalize()
+    story.append(Paragraph(formatted_subtitle, top_text_style))
     story.append(Spacer(1, 30))
     
     formatted_title = title_text.upper().replace('\n', '<br/>')
@@ -115,7 +116,7 @@ def replace_pdf_first_page(source_pdf_path, final_pdf_path):
             writer.add_page(reader.pages[page_num])
             
         # Генерируем текстовую обложку на фиолетовом фоне
-        generate_cover_page(temp_cover_path, title_text, subtitle_text.capitalize())
+        generate_cover_page(temp_cover_path, title_text, subtitle_text)
         
         # Читаем созданную текстовую обложку
         cover_reader = PdfReader(temp_cover_path)
