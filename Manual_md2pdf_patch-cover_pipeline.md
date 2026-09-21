@@ -164,8 +164,24 @@ md2pdf-pc pad-admin.yaml document.pdf
 
 ### `patch-cover: command not found`
 
-Обновите алиасы:
+1. Временное решение — обновите алиасы:
 
-```bash
-source ~/.bashrc
-```
+   ```bash
+   source ~/.bashrc
+   ```
+
+2. Стабильное решение — зарегистрировать команду в системном PATH:
+
+   ```bash
+   # Удаляем alias patch-cover
+   nano ~/.bashrc
+   
+   # Даем права на чтение и запуск всем пользователям системы
+   sudo chmod 755 /home/faun6/projects/md2pdf/patch-cover
+   
+   # Создаем жесткую системную ссылку (симлинк) в каталог, который ВСЕГДА активен
+   sudo ln -sf /home/faun6/projects/md2pdf/patch-cover /usr/local/bin/patch-cover
+
+   # Применяем изменения
+   source ~/.bashrc
+   ```
