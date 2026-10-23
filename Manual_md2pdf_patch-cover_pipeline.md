@@ -86,9 +86,7 @@ rm Inter-4.1.zip
 
 3. Альтернатива алиасу: сделайте команду доступной глобально во всей системе WSL, скопировав ее в локальный бинарный каталог:
 
-   ```bash
-   sudo cp /home/user/projects/md2pdf/patch-cover /usr/local/bin/patch-cover
-   ```
+См. [patch-cover: command not found](#patch-cover-command-not-found)
 
 ### Шаг 5. Интеграция пайплайна в профиль Bash
 
